@@ -288,8 +288,9 @@ def test_effective_host_config(tmp_path: Path) -> None:
     results = check_config(ctx, host="github.com")
     effective = next(item for item in results if item.check_id == "config.effective")
     assert effective.details is not None
-    assert "github.com" in effective.details
-    assert "git" in effective.details
+    fields = dict(line.split(": ", 1) for line in effective.details.splitlines())
+    assert fields["HostName"] == "github.com"
+    assert fields["User"] == "git"
     assert any("id_missing" in item.message for item in results)
     assert all("proxycommand" not in " ".join(call) for call in runner.calls)
 

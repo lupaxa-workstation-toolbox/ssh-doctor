@@ -29,7 +29,6 @@ class CommandRunner(Protocol):
         env: dict[str, str] | None = None,
     ) -> CommandResult:
         """Run ``argv`` and return the captured result."""
-        ...
 
 
 def redact(text: str) -> str:
