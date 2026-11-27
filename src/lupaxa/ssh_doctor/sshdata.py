@@ -186,9 +186,7 @@ def unsafe_reason(keyword: str, argument: str) -> str | None:
     if keyword == "protocol" and value == "1":
         return "SSH protocol 1 is obsolete"
     if keyword == "ciphers":
-        weak = [
-            item for item in _comma_tokens(value) if item in {"arcfour", "3des-cbc", "blowfish-cbc"}
-        ]
+        weak = [item for item in _comma_tokens(value) if item in {"arcfour", "3des-cbc", "blowfish-cbc"}]
         if weak:
             return "weak ciphers are enabled: " + ", ".join(weak)
     return None
@@ -212,13 +210,7 @@ def parse_known_host_line(line: str, line_no: int) -> KnownHostEntry | None:
     return KnownHostEntry(True, hosts, key_type, hashed, line_no, "")
 
 
-def assess_mode(
-    kind: str,
-    mode: int,
-    owner_uid: int,
-    user_uid: int,
-    path: Path,
-) -> ModeAssessment:
+def assess_mode(kind: str, mode: int, owner_uid: int, user_uid: int, path: Path) -> ModeAssessment:
     """Judge a path against OpenSSH permission rules."""
     bits = stat.S_IMODE(mode)
     octal = f"{bits:04o}"
@@ -231,51 +223,28 @@ def assess_mode(
         if not owned:
             return _bad(path, octal, expected, "chown", "directory owner is not you")
         if group_write or other_write:
-            return _bad(
-                path,
-                octal,
-                expected,
-                "chmod 700",
-                "directory is writable by group or others",
-            )
+            return _bad(path, octal, expected, "chmod 700", "directory is writable by group or others")
         return ModeAssessment(Status.PASS, f"{path} mode {octal} is acceptable.", expected, None)
     if kind == "private_key":
         expected = "owned by you with no group or other access (0600)"
         if not owned:
             return _bad(path, octal, expected, "chown", "private key owner is not you")
         if group_or_other:
-            return _bad(
-                path,
-                octal,
-                expected,
-                "chmod 600",
-                "private key is accessible by group or others",
-            )
+            return _bad(path, octal, expected, "chmod 600", "private key is accessible by group or others")
         return ModeAssessment(Status.PASS, f"{path} mode {octal} is acceptable.", expected, None)
     if kind == "config":
         expected = "owned by you and not writable by group or others (0644 is acceptable)"
         if not owned:
             return _bad(path, octal, expected, "chown", "configuration owner is not you")
         if group_write or other_write:
-            return _bad(
-                path,
-                octal,
-                expected,
-                "chmod 644",
-                "configuration is writable by group or others",
-            )
+            return _bad(path, octal, expected, "chmod 644", "configuration is writable by group or others")
         return ModeAssessment(Status.PASS, f"{path} mode {octal} is acceptable.", expected, None)
     expected = "not writable by others (0644 is acceptable)"
     if other_write:
         label = kind.replace("_", " ")
         return _bad(path, octal, expected, "chmod 644", f"{label} is writable by others")
     if not owned:
-        return ModeAssessment(
-            Status.WARN,
-            f"{path} is not owned by you (mode {octal}).",
-            expected,
-            f"chown {user_uid} {path}",
-        )
+        return ModeAssessment(Status.WARN, f"{path} is not owned by you (mode {octal}).", expected, f"chown {user_uid} {path}")
     return ModeAssessment(Status.PASS, f"{path} mode {octal} is acceptable.", expected, None)
 
 
@@ -295,9 +264,7 @@ def is_encrypted_private_key(data: bytes) -> bool:
         return True
     if b"OPENSSH PRIVATE KEY" not in head:
         return False
-    body = b"".join(
-        line.strip() for line in data.splitlines() if line and not line.startswith(b"-----")
-    )
+    body = b"".join(line.strip() for line in data.splitlines() if line and not line.startswith(b"-----"))
     try:
         decoded = base64.b64decode(body, validate=False)
     except ValueError:
@@ -428,13 +395,5 @@ def _looks_like_key_type(value: str) -> bool:
 
 
 def _bad(path: Path, octal: str, expected: str, command: str, message: str) -> ModeAssessment:
-    if command.startswith("chmod"):
-        recommendation = f"{command} {path}"
-    else:
-        recommendation = f"chown $(whoami) {path}"
-    return ModeAssessment(
-        Status.FAIL,
-        f"{message}: {path} mode {octal}.",
-        expected,
-        recommendation,
-    )
+    recommendation = f"{command} {path}" if command.startswith("chmod") else f"chown $(whoami) {path}"
+    return ModeAssessment(Status.FAIL, f"{message}: {path} mode {octal}.", expected, recommendation)

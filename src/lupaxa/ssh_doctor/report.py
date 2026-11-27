@@ -23,13 +23,7 @@ def use_colour(stream: TextIO, environ: dict[str, str]) -> bool:
     return bool(isatty and isatty())
 
 
-def render_text(
-    results: list[CheckResult],
-    *,
-    verbose: bool,
-    quiet: bool,
-    colour: bool,
-) -> str:
+def render_text(results: list[CheckResult], *, verbose: bool, quiet: bool, colour: bool) -> str:
     """Render a human-readable report."""
     lines: list[str] = []
     category = ""
@@ -53,28 +47,14 @@ def render_text(
     if lines:
         lines.append("")
     counts = summary_counts(results)
-    lines.append(
-        "Summary: "
-        f"{counts['passed']} passed, "
-        f"{_plural(counts['warnings'], 'warning')}, "
-        f"{counts['failed']} failed, "
-        f"{counts['skipped']} skipped"
-    )
+    lines.append(f"Summary: {counts['passed']} passed, {_plural(counts['warnings'], 'warning')}, {counts['failed']} failed, {counts['skipped']} skipped")
     if shown == 0 and quiet:
         lines.insert(0, "No warnings or failures.")
         lines.insert(1, "")
     return "\n".join(lines) + "\n"
 
 
-def render_json(
-    results: list[CheckResult],
-    *,
-    version: str,
-    timestamp: str,
-    system: str,
-    release: str,
-    machine: str,
-) -> str:
+def render_json(results: list[CheckResult], *, version: str, timestamp: str, system: str, release: str, machine: str) -> str:
     """Render the stable JSON report."""
     payload = {
         "version": version,

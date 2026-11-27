@@ -21,13 +21,7 @@ class CommandResult:
 class CommandRunner(Protocol):
     """Run one command without a shell."""
 
-    def run(
-        self,
-        argv: list[str],
-        *,
-        timeout: float,
-        env: dict[str, str] | None = None,
-    ) -> CommandResult:
+    def run(self, argv: list[str], *, timeout: float, env: dict[str, str] | None = None) -> CommandResult:
         """Run ``argv`` and return the captured result."""
 
 
@@ -45,13 +39,7 @@ def redact(text: str) -> str:
 class SubprocessRunner:
     """Run commands with a timeout and no shell."""
 
-    def run(
-        self,
-        argv: list[str],
-        *,
-        timeout: float,
-        env: dict[str, str] | None = None,
-    ) -> CommandResult:
+    def run(self, argv: list[str], *, timeout: float, env: dict[str, str] | None = None) -> CommandResult:
         """Run ``argv`` and capture stdout and stderr."""
         try:
             completed = subprocess.run(  # noqa: S603
@@ -64,24 +52,12 @@ class SubprocessRunner:
                 env=env,
             )
         except subprocess.TimeoutExpired as exc:
-            return CommandResult(
-                list(argv),
-                124,
-                _text(exc.stdout),
-                _text(exc.stderr),
-                True,
-            )
+            return CommandResult(list(argv), 124, _text(exc.stdout), _text(exc.stderr), True)
         except FileNotFoundError:
             return CommandResult(list(argv), 127, "", "command not found", False)
         except OSError as exc:
             return CommandResult(list(argv), 127, "", redact(str(exc)), False)
-        return CommandResult(
-            list(argv),
-            completed.returncode,
-            completed.stdout or "",
-            completed.stderr or "",
-            False,
-        )
+        return CommandResult(list(argv), completed.returncode, completed.stdout or "", completed.stderr or "", False)
 
 
 def _text(value: str | bytes | None) -> str:

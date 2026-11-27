@@ -6,13 +6,7 @@ import os
 from collections.abc import Callable
 from pathlib import Path
 
-from lupaxa.ssh_doctor.diagnose import (
-    Context,
-    check_config,
-    check_keys,
-    check_permissions,
-    run_diagnostics,
-)
+from lupaxa.ssh_doctor.diagnose import Context, check_config, check_keys, check_permissions, run_diagnostics
 from lupaxa.ssh_doctor.model import Status, exit_code_for
 from lupaxa.ssh_doctor.process import CommandResult
 from lupaxa.ssh_doctor.settings import Settings
@@ -26,13 +20,7 @@ class FakeRunner:
         self.calls: list[list[str]] = []
         self.by_flag: dict[str, CommandResult] = {}
 
-    def run(
-        self,
-        argv: list[str],
-        *,
-        timeout: float,
-        env: dict[str, str] | None = None,
-    ) -> CommandResult:
+    def run(self, argv: list[str], *, timeout: float, env: dict[str, str] | None = None) -> CommandResult:
         del timeout, env
         self.calls.append(list(argv))
         for flag, result in self.by_flag.items():
@@ -168,12 +156,7 @@ def test_key_inventory_cases(tmp_path: Path) -> None:
     orphan.write_text("ssh-ed25519 AAAAOrphan comment\n", encoding="utf-8")
     orphan.chmod(0o644)
     encrypted = ctx.ssh_dir / "id_encrypted"
-    encrypted.write_text(
-        "-----BEGIN ENCRYPTED PRIVATE KEY-----\n"
-        "SECRET-KEY-MATERIAL\n"
-        "-----END ENCRYPTED PRIVATE KEY-----\n",
-        encoding="utf-8",
-    )
+    encrypted.write_text("-----BEGIN ENCRYPTED PRIVATE KEY-----\nSECRET-KEY-MATERIAL\n-----END ENCRYPTED PRIVATE KEY-----\n", encoding="utf-8")
     encrypted.chmod(0o600)
     (ctx.ssh_dir / "id_encrypted.pub").write_text("ssh-ed25519 AAAAEnc comment\n", encoding="utf-8")
     (ctx.ssh_dir / "id_encrypted.pub").chmod(0o644)
@@ -189,12 +172,7 @@ def test_key_inventory_cases(tmp_path: Path) -> None:
     dup_a.chmod(0o644)
     dup_b.chmod(0o644)
 
-    def selective(
-        argv: list[str],
-        *,
-        timeout: float,
-        env: dict[str, str] | None = None,
-    ) -> CommandResult:
+    def selective(argv: list[str], *, timeout: float, env: dict[str, str] | None = None) -> CommandResult:
         del timeout, env
         runner.calls.append(list(argv))
         if "-y" in argv:

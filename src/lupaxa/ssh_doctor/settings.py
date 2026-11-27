@@ -6,14 +6,7 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-CATEGORIES = (
-    "system",
-    "permissions",
-    "keys",
-    "config",
-    "agent",
-    "known-hosts",
-)
+CATEGORIES = ("system", "permissions", "keys", "config", "agent", "known-hosts")
 
 
 class ConfigError(Exception):
@@ -41,11 +34,7 @@ class Settings:
         return enabled is None or category in enabled
 
 
-def resolve_config_path(
-    explicit: Path | None,
-    environ: dict[str, str],
-    home: Path,
-) -> Path | None:
+def resolve_config_path(explicit: Path | None, environ: dict[str, str], home: Path) -> Path | None:
     """Find the configuration file, if the user has one."""
     if explicit is not None:
         path = explicit.expanduser()
@@ -86,14 +75,8 @@ def _settings_from_table(payload: dict[str, object]) -> Settings:
     ssh_directory = payload.get("ssh_directory")
     if ssh_directory is not None:
         settings.ssh_directory = _as_path(ssh_directory, "ssh_directory")
-    settings.key_search_directories = _path_list(
-        payload.get("key_search_directories", []),
-        "key_search_directories",
-    )
-    settings.known_host_files = _path_list(
-        payload.get("known_host_files", []),
-        "known_host_files",
-    )
+    settings.key_search_directories = _path_list(payload.get("key_search_directories", []), "key_search_directories")
+    settings.known_host_files = _path_list(payload.get("known_host_files", []), "known_host_files")
     enabled = payload.get("enabled_categories")
     if enabled is not None:
         settings.enabled_categories = set(_categories(enabled, "enabled_categories"))

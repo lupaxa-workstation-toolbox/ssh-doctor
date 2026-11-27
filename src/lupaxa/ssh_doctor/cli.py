@@ -33,18 +33,8 @@ def _positive_timeout(value: str) -> float:
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the ``ssh-doctor`` argument parser."""
-    parser = argparse.ArgumentParser(
-        prog="ssh-doctor",
-        description=(
-            "Read-only diagnostics for local SSH client configuration, "
-            "keys, permissions, and the agent."
-        ),
-    )
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"ssh-doctor {get_version()}",
-    )
+    parser = argparse.ArgumentParser(prog="ssh-doctor", description=("Read-only diagnostics for local SSH client configuration, keys, permissions, and the agent."))
+    parser.add_argument("--version", action="version", version=f"ssh-doctor {get_version()}")
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--json", action="store_true", help="print a JSON report")
     common.add_argument("--verbose", action="store_true", help="include extra detail")
@@ -116,12 +106,7 @@ def main(
         explicit_ssh_dir=settings.ssh_directory is not None,
     )
     try:
-        results = executor(
-            args.command,
-            ctx,
-            host=getattr(args, "host", None),
-            known_host=getattr(args, "hostname", None),
-        )
+        results = executor(args.command, ctx, host=getattr(args, "host", None), known_host=getattr(args, "hostname", None))
     except ConfigError as exc:
         print(f"ssh-doctor: {exc}", file=sys.stderr)
         return 3
@@ -132,23 +117,11 @@ def main(
     if as_json:
         sys.stdout.write(
             render_json(
-                results,
-                version=get_version(),
-                timestamp=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                system=ctx.platform_system,
-                release=ctx.platform_release,
-                machine=ctx.platform_machine,
+                results, version=get_version(), timestamp=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), system=ctx.platform_system, release=ctx.platform_release, machine=ctx.platform_machine
             )
         )
     else:
-        sys.stdout.write(
-            render_text(
-                results,
-                verbose=args.verbose,
-                quiet=args.quiet,
-                colour=use_colour(sys.stdout, env),
-            )
-        )
+        sys.stdout.write(render_text(results, verbose=args.verbose, quiet=args.quiet, colour=use_colour(sys.stdout, env)))
     return exit_code_for(results)
 
 

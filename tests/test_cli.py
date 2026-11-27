@@ -49,13 +49,7 @@ def test_execution_failure_exits_4(tmp_path: Path) -> None:
 def test_json_report_shape(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     home = tmp_path / "home"
     home.mkdir()
-    code = main(
-        ["system", "--json"],
-        home=home,
-        environ={"PATH": "", "HOME": str(home)},
-        which=lambda _name: None,
-        platform_system="Linux",
-    )
+    code = main(["system", "--json"], home=home, environ={"PATH": "", "HOME": str(home)}, which=lambda _name: None, platform_system="Linux")
     assert code == 2
     import json
 
@@ -64,9 +58,7 @@ def test_json_report_shape(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
     assert payload["os"]["system"] == "Linux"
     assert set(payload["summary"]) == {"passed", "warnings", "failed", "skipped"}
     assert payload["results"]
-    assert {"check_id", "category", "status", "message", "details", "recommendation"} <= set(
-        payload["results"][0]
-    )
+    assert {"check_id", "category", "status", "message", "details", "recommendation"} <= set(payload["results"][0])
 
 
 def test_suppressed_warning_is_omitted(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -75,28 +67,17 @@ def test_suppressed_warning_is_omitted(tmp_path: Path, capsys: pytest.CaptureFix
     ssh.mkdir(parents=True)
     ssh.chmod(0o700)
     private = ssh / "id_dsa"
-    private.write_text(
-        "-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----\n",
-        encoding="utf-8",
-    )
+    private.write_text("-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----\n", encoding="utf-8")
     private.chmod(0o600)
     public = ssh / "id_dsa.pub"
     public.write_text("ssh-dss AAAAkey comment\n", encoding="utf-8")
     public.chmod(0o644)
     config = tmp_path / "config.toml"
-    config.write_text(
-        'enabled_categories = ["keys"]\nsuppressed_warnings = ["keys.obsolete.id_dsa"]\n',
-        encoding="utf-8",
-    )
+    config.write_text('enabled_categories = ["keys"]\nsuppressed_warnings = ["keys.obsolete.id_dsa"]\n', encoding="utf-8")
 
     from lupaxa.ssh_doctor.process import CommandResult
 
-    def runner_run(
-        argv: list[str],
-        *,
-        timeout: float,
-        env: dict[str, str] | None = None,
-    ) -> CommandResult:
+    def runner_run(argv: list[str], *, timeout: float, env: dict[str, str] | None = None) -> CommandResult:
         del timeout, env
         if "-l" in argv:
             return CommandResult(argv, 0, "1024 SHA256:abc comment (DSA)\n", "", False)
@@ -105,23 +86,10 @@ def test_suppressed_warning_is_omitted(tmp_path: Path, capsys: pytest.CaptureFix
         return CommandResult(argv, 0, "", "", False)
 
     class Runner:
-        def run(
-            self,
-            argv: list[str],
-            *,
-            timeout: float,
-            env: dict[str, str] | None = None,
-        ) -> CommandResult:
+        def run(self, argv: list[str], *, timeout: float, env: dict[str, str] | None = None) -> CommandResult:
             return runner_run(argv, timeout=timeout, env=env)
 
-    code = main(
-        ["check", "--config", str(config)],
-        home=home,
-        environ={"PATH": "/usr/bin", "HOME": str(home)},
-        which=lambda name: f"/usr/bin/{name}",
-        runner=Runner(),
-        platform_system="Linux",
-    )
+    code = main(["check", "--config", str(config)], home=home, environ={"PATH": "/usr/bin", "HOME": str(home)}, which=lambda name: f"/usr/bin/{name}", runner=Runner(), platform_system="Linux")
     assert code == 0
     assert "obsolete" not in capsys.readouterr().out.lower()
 

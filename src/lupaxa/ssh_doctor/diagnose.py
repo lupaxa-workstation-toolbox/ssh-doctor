@@ -52,26 +52,13 @@ class Context:
     explicit_ssh_dir: bool
 
 
-def run_diagnostics(
-    command: str,
-    ctx: Context,
-    *,
-    host: str | None = None,
-    known_host: str | None = None,
-) -> list[CheckResult]:
+def run_diagnostics(command: str, ctx: Context, *, host: str | None = None, known_host: str | None = None) -> list[CheckResult]:
     """Run one command, or every local check for ``check``."""
     if command == "check":
         results: list[CheckResult] = []
         for category in CATEGORIES:
             if not ctx.settings.allows(category):
-                results.append(
-                    CheckResult(
-                        f"{category}.disabled",
-                        category,
-                        Status.SKIP,
-                        f"{category} checks are disabled by configuration.",
-                    )
-                )
+                results.append(CheckResult(f"{category}.disabled", category, Status.SKIP, f"{category} checks are disabled by configuration."))
                 continue
             results.extend(_run_category(category, ctx, host=host, known_host=known_host))
         return _suppress(results, ctx.settings.suppressed_warnings)
@@ -86,13 +73,7 @@ def _command_category(command: str) -> str:
     return command
 
 
-def _run_category(
-    category: str,
-    ctx: Context,
-    *,
-    host: str | None,
-    known_host: str | None,
-) -> list[CheckResult]:
+def _run_category(category: str, ctx: Context, *, host: str | None, known_host: str | None) -> list[CheckResult]:
     functions = {
         "system": lambda: check_system(ctx),
         "permissions": lambda: check_permissions(ctx),
@@ -104,15 +85,7 @@ def _run_category(
     try:
         return functions[category]()
     except Exception as exc:
-        return [
-            CheckResult(
-                f"{category}.error",
-                category,
-                Status.FAIL,
-                "Check could not be completed.",
-                details=redact(str(exc))[:500] or exc.__class__.__name__,
-            )
-        ]
+        return [CheckResult(f"{category}.error", category, Status.FAIL, "Check could not be completed.", details=redact(str(exc))[:500] or exc.__class__.__name__)]
 
 
 def check_system(ctx: Context) -> list[CheckResult]:
@@ -123,116 +96,31 @@ def check_system(ctx: Context) -> list[CheckResult]:
     if ssh and ssh not in copies:
         copies.insert(0, ssh)
     if not ssh and not copies:
-        results.append(
-            CheckResult(
-                "system.ssh_present",
-                "system",
-                Status.FAIL,
-                "The ssh client was not found on PATH.",
-                recommendation="Install OpenSSH and ensure ssh is on PATH.",
-            )
-        )
-        results.append(
-            CheckResult(
-                "system.ssh_version",
-                "system",
-                Status.SKIP,
-                "OpenSSH version was not checked because ssh is missing.",
-            )
-        )
+        results.append(CheckResult("system.ssh_present", "system", Status.FAIL, "The ssh client was not found on PATH.", recommendation="Install OpenSSH and ensure ssh is on PATH."))
+        results.append(CheckResult("system.ssh_version", "system", Status.SKIP, "OpenSSH version was not checked because ssh is missing."))
     else:
         binary = ssh or copies[0]
-        results.append(
-            CheckResult(
-                "system.ssh_present",
-                "system",
-                Status.PASS,
-                "OpenSSH client found.",
-                details=binary,
-            )
-        )
+        results.append(CheckResult("system.ssh_present", "system", Status.PASS, "OpenSSH client found.", details=binary))
         results.append(_version_result(ctx, binary))
     for tool in ("ssh-keygen", "ssh-add", "ssh-agent"):
         located = ctx.which(tool)
         if located:
-            results.append(
-                CheckResult(
-                    f"system.{tool.replace('-', '_')}",
-                    "system",
-                    Status.PASS,
-                    f"{tool} found.",
-                    details=located,
-                )
-            )
+            results.append(CheckResult(f"system.{tool.replace('-', '_')}", "system", Status.PASS, f"{tool} found.", details=located))
         else:
-            results.append(
-                CheckResult(
-                    f"system.{tool.replace('-', '_')}",
-                    "system",
-                    Status.FAIL,
-                    f"{tool} was not found on PATH.",
-                    recommendation="Install the OpenSSH client package.",
-                )
-            )
+            results.append(CheckResult(f"system.{tool.replace('-', '_')}", "system", Status.FAIL, f"{tool} was not found on PATH.", recommendation="Install the OpenSSH client package."))
     if len(copies) > 1:
         results.append(
-            CheckResult(
-                "system.multiple_ssh",
-                "system",
-                Status.WARN,
-                "More than one ssh executable is on PATH.",
-                details="\n".join(copies),
-                recommendation="Keep a single ssh client first on PATH.",
-            )
+            CheckResult("system.multiple_ssh", "system", Status.WARN, "More than one ssh executable is on PATH.", details="\n".join(copies), recommendation="Keep a single ssh client first on PATH.")
         )
     elif copies:
-        results.append(
-            CheckResult(
-                "system.multiple_ssh",
-                "system",
-                Status.PASS,
-                "One ssh executable is on PATH.",
-                details=copies[0],
-            )
-        )
+        results.append(CheckResult("system.multiple_ssh", "system", Status.PASS, "One ssh executable is on PATH.", details=copies[0]))
     else:
-        results.append(
-            CheckResult(
-                "system.multiple_ssh",
-                "system",
-                Status.SKIP,
-                "Multiple ssh clients were not compared because ssh is missing.",
-            )
-        )
-    results.append(
-        CheckResult(
-            "system.platform",
-            "system",
-            Status.PASS,
-            f"{ctx.platform_system} {ctx.platform_machine}.",
-            details=ctx.platform_release,
-        )
-    )
+        results.append(CheckResult("system.multiple_ssh", "system", Status.SKIP, "Multiple ssh clients were not compared because ssh is missing."))
+    results.append(CheckResult("system.platform", "system", Status.PASS, f"{ctx.platform_system} {ctx.platform_machine}.", details=ctx.platform_release))
     if ctx.home.is_dir():
-        results.append(
-            CheckResult(
-                "system.home",
-                "system",
-                Status.PASS,
-                "Home directory is accessible.",
-                details=str(ctx.home),
-            )
-        )
+        results.append(CheckResult("system.home", "system", Status.PASS, "Home directory is accessible.", details=str(ctx.home)))
     else:
-        results.append(
-            CheckResult(
-                "system.home",
-                "system",
-                Status.FAIL,
-                "Home directory is not accessible.",
-                details=str(ctx.home),
-            )
-        )
+        results.append(CheckResult("system.home", "system", Status.FAIL, "Home directory is not accessible.", details=str(ctx.home)))
     results.append(_ssh_dir_access(ctx))
     return results
 
@@ -263,15 +151,7 @@ def check_keys(ctx: Context) -> list[CheckResult]:
         try:
             entries = sorted(directory.iterdir(), key=lambda item: item.name)
         except OSError as exc:
-            return [
-                CheckResult(
-                    "keys.directory",
-                    "keys",
-                    Status.FAIL,
-                    f"Key directory is not accessible: {directory}",
-                    details=exc.strerror or "permission denied",
-                )
-            ]
+            return [CheckResult("keys.directory", "keys", Status.FAIL, f"Key directory is not accessible: {directory}", details=exc.strerror or "permission denied")]
         for entry in entries:
             if entry.name.startswith("."):
                 continue
@@ -284,15 +164,7 @@ def check_keys(ctx: Context) -> list[CheckResult]:
         message = "No SSH keys were found."
         if missing_dirs == len(directories):
             message = "SSH directory does not exist, so no keys were inventoried."
-        return [
-            CheckResult(
-                "keys.inventory",
-                "keys",
-                Status.SKIP,
-                message,
-                details=str(ctx.ssh_dir),
-            )
-        ]
+        return [CheckResult("keys.inventory", "keys", Status.SKIP, message, details=str(ctx.ssh_dir))]
     agent_fps = _agent_fingerprints(ctx)
     results: list[CheckResult] = []
     fingerprints: dict[str, set[str]] = defaultdict(set)
@@ -305,24 +177,9 @@ def check_keys(ctx: Context) -> list[CheckResult]:
     duplicates = {fp: names for fp, names in fingerprints.items() if len(names) > 1}
     if duplicates:
         lines = [f"{fp}: {', '.join(sorted(names))}" for fp, names in sorted(duplicates.items())]
-        results.append(
-            CheckResult(
-                "keys.duplicate",
-                "keys",
-                Status.WARN,
-                "Duplicate public keys were found.",
-                details="\n".join(lines),
-            )
-        )
+        results.append(CheckResult("keys.duplicate", "keys", Status.WARN, "Duplicate public keys were found.", details="\n".join(lines)))
     if not results:
-        results.append(
-            CheckResult(
-                "keys.inventory",
-                "keys",
-                Status.SKIP,
-                "No recognised SSH keys were found.",
-            )
-        )
+        results.append(CheckResult("keys.inventory", "keys", Status.SKIP, "No recognised SSH keys were found."))
     return results
 
 
@@ -336,14 +193,7 @@ def check_config(ctx: Context, *, host: str | None) -> list[CheckResult]:
     results.extend(_unsafe_results(directives))
     ssh = ctx.which("ssh")
     if ssh is None:
-        results.append(
-            CheckResult(
-                "config.syntax",
-                "config",
-                Status.SKIP,
-                "SSH configuration syntax was not checked because ssh is missing.",
-            )
-        )
+        results.append(CheckResult("config.syntax", "config", Status.SKIP, "SSH configuration syntax was not checked because ssh is missing."))
         return results
     argv = [ssh, "-G"]
     if ctx.explicit_ssh_dir:
@@ -351,15 +201,7 @@ def check_config(ctx: Context, *, host: str | None) -> list[CheckResult]:
     argv.append(host or "ssh-doctor.invalid")
     completed = ctx.runner.run(argv, timeout=ctx.timeout, env=ctx.environ)
     if completed.timed_out:
-        results.append(
-            CheckResult(
-                "config.syntax",
-                "config",
-                Status.FAIL,
-                "ssh -G timed out while reading configuration.",
-                recommendation="Increase the command timeout and retry.",
-            )
-        )
+        results.append(CheckResult("config.syntax", "config", Status.FAIL, "ssh -G timed out while reading configuration.", recommendation="Increase the command timeout and retry."))
         return results
     if completed.returncode != 0:
         results.append(
@@ -373,14 +215,7 @@ def check_config(ctx: Context, *, host: str | None) -> list[CheckResult]:
             )
         )
         return results
-    results.append(
-        CheckResult(
-            "config.syntax",
-            "config",
-            Status.PASS,
-            "SSH configuration syntax is valid.",
-        )
-    )
+    results.append(CheckResult("config.syntax", "config", Status.PASS, "SSH configuration syntax is valid."))
     if host:
         results.extend(_effective_results(ctx, host, completed))
     return results
@@ -391,70 +226,23 @@ def check_agent(ctx: Context) -> list[CheckResult]:
     results: list[CheckResult] = []
     sock = ctx.environ.get("SSH_AUTH_SOCK", "")
     if not sock:
-        results.append(
-            CheckResult(
-                "agent.socket",
-                "agent",
-                Status.WARN,
-                "SSH_AUTH_SOCK is not set.",
-                recommendation="Start an agent or use key files directly. No agent was started.",
-            )
-        )
-        results.append(
-            CheckResult(
-                "agent.contact",
-                "agent",
-                Status.SKIP,
-                "The agent was not contacted because SSH_AUTH_SOCK is unset.",
-            )
-        )
+        results.append(CheckResult("agent.socket", "agent", Status.WARN, "SSH_AUTH_SOCK is not set.", recommendation="Start an agent or use key files directly. No agent was started."))
+        results.append(CheckResult("agent.contact", "agent", Status.SKIP, "The agent was not contacted because SSH_AUTH_SOCK is unset."))
     else:
         socket_path = Path(sock)
         if not socket_path.exists():
-            results.append(
-                CheckResult(
-                    "agent.socket",
-                    "agent",
-                    Status.FAIL,
-                    "SSH_AUTH_SOCK does not point at an existing socket.",
-                    details=sock,
-                )
-            )
-            results.append(
-                CheckResult(
-                    "agent.contact",
-                    "agent",
-                    Status.SKIP,
-                    "The agent was not contacted because the socket is missing.",
-                )
-            )
+            results.append(CheckResult("agent.socket", "agent", Status.FAIL, "SSH_AUTH_SOCK does not point at an existing socket.", details=sock))
+            results.append(CheckResult("agent.contact", "agent", Status.SKIP, "The agent was not contacted because the socket is missing."))
         else:
             detail = sock
             if ctx.platform_system == "Darwin" and ("com.apple" in sock or "launchd" in sock):
-                detail = (
-                    f"{sock}\nApple SSH agent socket detected. Keychain settings were not changed."
-                )
-            results.append(
-                CheckResult(
-                    "agent.socket",
-                    "agent",
-                    Status.PASS,
-                    "SSH_AUTH_SOCK points at an existing socket.",
-                    details=detail,
-                )
-            )
+                detail = f"{sock}\nApple SSH agent socket detected. Keychain settings were not changed."
+            results.append(CheckResult("agent.socket", "agent", Status.PASS, "SSH_AUTH_SOCK points at an existing socket.", details=detail))
             results.extend(_agent_contact(ctx))
     if ctx.platform_system == "Darwin":
         results.append(_apple_keychain(ctx))
     else:
-        results.append(
-            CheckResult(
-                "agent.apple",
-                "agent",
-                Status.SKIP,
-                "Apple Keychain integration does not apply on this operating system.",
-            )
-        )
+        results.append(CheckResult("agent.apple", "agent", Status.SKIP, "Apple Keychain integration does not apply on this operating system."))
     return results
 
 
@@ -462,14 +250,7 @@ def check_known_hosts(ctx: Context, *, hostname: str | None) -> list[CheckResult
     """Inspect known-host files without modifying them."""
     paths = _known_host_paths(ctx)
     if not paths:
-        return [
-            CheckResult(
-                "known_hosts.files",
-                "known-hosts",
-                Status.SKIP,
-                "No known-host files were configured.",
-            )
-        ]
+        return [CheckResult("known_hosts.files", "known-hosts", Status.SKIP, "No known-host files were configured.")]
     results: list[CheckResult] = []
     found = False
     searched = False
@@ -481,149 +262,57 @@ def check_known_hosts(ctx: Context, *, hostname: str | None) -> list[CheckResult
                 found = True
     if hostname and searched:
         if found:
-            results.append(
-                CheckResult(
-                    "known_hosts.search",
-                    "known-hosts",
-                    Status.PASS,
-                    f"A known-host entry was found for {hostname}.",
-                )
-            )
+            results.append(CheckResult("known_hosts.search", "known-hosts", Status.PASS, f"A known-host entry was found for {hostname}."))
         else:
             results.append(
                 CheckResult(
-                    "known_hosts.search",
-                    "known-hosts",
-                    Status.WARN,
-                    f"No known-host entry was found for {hostname}.",
-                    recommendation="Connect once and verify the host key before trusting it.",
+                    "known_hosts.search", "known-hosts", Status.WARN, f"No known-host entry was found for {hostname}.", recommendation="Connect once and verify the host key before trusting it."
                 )
             )
     elif hostname:
-        results.append(
-            CheckResult(
-                "known_hosts.search",
-                "known-hosts",
-                Status.SKIP,
-                f"{hostname} was not searched because no known-host file could be read.",
-            )
-        )
+        results.append(CheckResult("known_hosts.search", "known-hosts", Status.SKIP, f"{hostname} was not searched because no known-host file could be read."))
     return results
 
 
 def _version_result(ctx: Context, binary: str) -> CheckResult:
     completed = ctx.runner.run([binary, "-V"], timeout=ctx.timeout, env=ctx.environ)
     if completed.timed_out:
-        return CheckResult(
-            "system.ssh_version",
-            "system",
-            Status.FAIL,
-            "Timed out while reading the OpenSSH version.",
-            recommendation="Increase the command timeout and retry.",
-        )
+        return CheckResult("system.ssh_version", "system", Status.FAIL, "Timed out while reading the OpenSSH version.", recommendation="Increase the command timeout and retry.")
     text = redact(completed.stderr or completed.stdout).splitlines()
     line = text[0] if text else ""
     if "OpenSSH" in line or (completed.returncode == 0 and line):
-        return CheckResult(
-            "system.ssh_version",
-            "system",
-            Status.PASS,
-            line or "OpenSSH version was reported.",
-        )
-    return CheckResult(
-        "system.ssh_version",
-        "system",
-        Status.FAIL,
-        "Could not read the OpenSSH version.",
-        details=line or redact(completed.stderr),
-    )
+        return CheckResult("system.ssh_version", "system", Status.PASS, line or "OpenSSH version was reported.")
+    return CheckResult("system.ssh_version", "system", Status.FAIL, "Could not read the OpenSSH version.", details=line or redact(completed.stderr))
 
 
 def _ssh_dir_access(ctx: Context) -> CheckResult:
     path = ctx.ssh_dir
     if not path.exists():
-        return CheckResult(
-            "system.ssh_dir",
-            "system",
-            Status.FAIL,
-            "SSH directory does not exist.",
-            details=str(path),
-            recommendation=f"mkdir -m 700 {path}",
-        )
+        return CheckResult("system.ssh_dir", "system", Status.FAIL, "SSH directory does not exist.", details=str(path), recommendation=f"mkdir -m 700 {path}")
     if not path.is_dir():
-        return CheckResult(
-            "system.ssh_dir",
-            "system",
-            Status.FAIL,
-            "SSH directory path is not a directory.",
-            details=str(path),
-        )
+        return CheckResult("system.ssh_dir", "system", Status.FAIL, "SSH directory path is not a directory.", details=str(path))
     try:
         next(path.iterdir(), None)
     except OSError as exc:
-        return CheckResult(
-            "system.ssh_dir",
-            "system",
-            Status.FAIL,
-            "SSH directory is not accessible.",
-            details=exc.strerror or str(path),
-        )
-    return CheckResult(
-        "system.ssh_dir",
-        "system",
-        Status.PASS,
-        "SSH directory is accessible.",
-        details=str(path),
-    )
+        return CheckResult("system.ssh_dir", "system", Status.FAIL, "SSH directory is not accessible.", details=exc.strerror or str(path))
+    return CheckResult("system.ssh_dir", "system", Status.PASS, "SSH directory is accessible.", details=str(path))
 
 
 def _ssh_dir_permission(ctx: Context) -> CheckResult:
     path = ctx.ssh_dir
     link = symlink_problem(path, ctx.home)
     if link == "broken":
-        return CheckResult(
-            "permissions.directory",
-            "permissions",
-            Status.FAIL,
-            "SSH directory symlink is broken.",
-            details=str(path),
-        )
+        return CheckResult("permissions.directory", "permissions", Status.FAIL, "SSH directory symlink is broken.", details=str(path))
     if not path.exists():
-        return CheckResult(
-            "permissions.directory",
-            "permissions",
-            Status.FAIL,
-            "SSH directory does not exist.",
-            details=str(path),
-            recommendation=f"mkdir -m 700 {path}",
-        )
+        return CheckResult("permissions.directory", "permissions", Status.FAIL, "SSH directory does not exist.", details=str(path), recommendation=f"mkdir -m 700 {path}")
     if link == "outside-home":
-        return CheckResult(
-            "permissions.symlink.directory",
-            "permissions",
-            Status.WARN,
-            "SSH directory symlink resolves outside the home directory.",
-            details=str(path.resolve()),
-        )
+        return CheckResult("permissions.symlink.directory", "permissions", Status.WARN, "SSH directory symlink resolves outside the home directory.", details=str(path.resolve()))
     try:
         info = path.stat()
     except OSError as exc:
-        return CheckResult(
-            "permissions.directory",
-            "permissions",
-            Status.FAIL,
-            "SSH directory is not accessible.",
-            details=exc.strerror or str(path),
-        )
+        return CheckResult("permissions.directory", "permissions", Status.FAIL, "SSH directory is not accessible.", details=exc.strerror or str(path))
     assessment = assess_mode("directory", info.st_mode, info.st_uid, ctx.uid, path)
-    return CheckResult(
-        "permissions.directory",
-        "permissions",
-        assessment.status,
-        assessment.message,
-        details=f"Expected: {assessment.expected}",
-        recommendation=assessment.recommendation,
-    )
+    return CheckResult("permissions.directory", "permissions", assessment.status, assessment.message, details=f"Expected: {assessment.expected}", recommendation=assessment.recommendation)
 
 
 def _interesting_paths(ctx: Context) -> list[Path]:
@@ -681,48 +370,17 @@ def _included_files(ctx: Context, config_path: Path) -> list[Path]:
 def _path_permissions(ctx: Context, path: Path) -> list[CheckResult]:
     link = symlink_problem(path, ctx.home)
     if link == "broken":
-        return [
-            CheckResult(
-                check_slug("permissions.symlink", path.name),
-                "permissions",
-                Status.FAIL,
-                f"Broken symlink: {path}",
-                recommendation="Remove or replace the symlink. It was not followed.",
-            )
-        ]
+        return [CheckResult(check_slug("permissions.symlink", path.name), "permissions", Status.FAIL, f"Broken symlink: {path}", recommendation="Remove or replace the symlink. It was not followed.")]
     results: list[CheckResult] = []
     if link == "outside-home":
-        results.append(
-            CheckResult(
-                check_slug("permissions.symlink", path.name),
-                "permissions",
-                Status.WARN,
-                f"Symlink resolves outside the home directory: {path}",
-                details=str(path.resolve()),
-            )
-        )
+        results.append(CheckResult(check_slug("permissions.symlink", path.name), "permissions", Status.WARN, f"Symlink resolves outside the home directory: {path}", details=str(path.resolve())))
     if not path.exists():
-        results.append(
-            CheckResult(
-                check_slug("permissions.missing", path.name),
-                "permissions",
-                Status.FAIL,
-                f"SSH file does not exist: {path}",
-            )
-        )
+        results.append(CheckResult(check_slug("permissions.missing", path.name), "permissions", Status.FAIL, f"SSH file does not exist: {path}"))
         return results
     try:
         info = path.stat()
     except OSError as exc:
-        results.append(
-            CheckResult(
-                check_slug("permissions.access", path.name),
-                "permissions",
-                Status.FAIL,
-                f"SSH file is not accessible: {path}",
-                details=exc.strerror,
-            )
-        )
+        results.append(CheckResult(check_slug("permissions.access", path.name), "permissions", Status.FAIL, f"SSH file is not accessible: {path}", details=exc.strerror))
         return results
     kind = classify_file(path)
     mode_kind = {
@@ -745,35 +403,15 @@ def _path_permissions(ctx: Context, path: Path) -> list[CheckResult]:
     return results
 
 
-def _public_key(
-    ctx: Context,
-    path: Path,
-    agent_fps: set[str] | None,
-    fingerprints: dict[str, set[str]],
-) -> list[CheckResult]:
+def _public_key(ctx: Context, path: Path, agent_fps: set[str] | None, fingerprints: dict[str, set[str]]) -> list[CheckResult]:
     private = path.with_suffix("") if path.suffix == ".pub" else None
     if private is not None and not private.exists() and not private.is_symlink():
-        results = [
-            CheckResult(
-                check_slug("keys.orphan_public", path.name),
-                "keys",
-                Status.WARN,
-                f"Public key has no matching private key: {path.name}",
-                details=str(path),
-            )
-        ]
+        results = [CheckResult(check_slug("keys.orphan_public", path.name), "keys", Status.WARN, f"Public key has no matching private key: {path.name}", details=str(path))]
     else:
         results = []
     parsed = parse_public_key(_read_text(path) or "")
     if parsed is None:
-        results.append(
-            CheckResult(
-                check_slug("keys.invalid", path.name),
-                "keys",
-                Status.FAIL,
-                f"Public key is invalid: {path.name}",
-            )
-        )
+        results.append(CheckResult(check_slug("keys.invalid", path.name), "keys", Status.FAIL, f"Public key is invalid: {path.name}"))
         return results
     algorithm, _blob, comment = parsed
     fingerprint = _fingerprint_for(ctx, path)
@@ -790,47 +428,17 @@ def _public_key(
         f"private key: {'yes' if private and private.exists() else 'no'}",
         f"loaded in agent: {loaded}",
     ]
-    results.insert(
-        0,
-        CheckResult(
-            check_slug("keys.public", path.name),
-            "keys",
-            Status.PASS,
-            f"Public key {path.name}.",
-            details="\n".join(details),
-        ),
-    )
+    results.insert(0, CheckResult(check_slug("keys.public", path.name), "keys", Status.PASS, f"Public key {path.name}.", details="\n".join(details)))
     flagged = algorithm_status(algorithm)
     if flagged is Status.WARN and not (private is not None and private.exists()):
-        results.append(
-            CheckResult(
-                check_slug("keys.obsolete", path.name),
-                "keys",
-                Status.WARN,
-                algorithm_label(algorithm) + f" ({path.name}).",
-                recommendation="Prefer an Ed25519 key for new use.",
-            )
-        )
+        results.append(CheckResult(check_slug("keys.obsolete", path.name), "keys", Status.WARN, algorithm_label(algorithm) + f" ({path.name}).", recommendation="Prefer an Ed25519 key for new use."))
     return results
 
 
-def _private_key(
-    ctx: Context,
-    path: Path,
-    agent_fps: set[str] | None,
-    fingerprints: dict[str, set[str]],
-) -> list[CheckResult]:
+def _private_key(ctx: Context, path: Path, agent_fps: set[str] | None, fingerprints: dict[str, set[str]]) -> list[CheckResult]:
     link = symlink_problem(path, ctx.home)
     if link == "broken":
-        return [
-            CheckResult(
-                check_slug("keys.symlink", path.name),
-                "keys",
-                Status.FAIL,
-                f"Private key symlink is broken: {path.name}",
-                details=str(path),
-            )
-        ]
+        return [CheckResult(check_slug("keys.symlink", path.name), "keys", Status.FAIL, f"Private key symlink is broken: {path.name}", details=str(path))]
     prefix = read_prefix(path) or b""
     encrypted = is_encrypted_private_key(prefix)
     public = Path(str(path) + ".pub")
@@ -866,59 +474,22 @@ def _private_key(
     ]
     if link == "outside-home":
         details.append("symlink: resolves outside the home directory")
-    results = [
-        CheckResult(
-            check_slug("keys.private", path.name),
-            "keys",
-            Status.PASS,
-            f"Private key {path.name}.",
-            details="\n".join(details),
-        )
-    ]
+    results = [CheckResult(check_slug("keys.private", path.name), "keys", Status.PASS, f"Private key {path.name}.", details="\n".join(details))]
     if link == "outside-home":
-        results.append(
-            CheckResult(
-                check_slug("keys.symlink", path.name),
-                "keys",
-                Status.WARN,
-                f"Private key symlink resolves outside the home directory: {path.name}",
-                details=str(path.resolve()),
-            )
-        )
+        results.append(CheckResult(check_slug("keys.symlink", path.name), "keys", Status.WARN, f"Private key symlink resolves outside the home directory: {path.name}", details=str(path.resolve())))
     assessment = None
     try:
         info = path.stat()
         assessment = assess_mode("private_key", info.st_mode, info.st_uid, ctx.uid, path)
     except OSError as exc:
-        results.append(
-            CheckResult(
-                check_slug("keys.permissions", path.name),
-                "keys",
-                Status.FAIL,
-                f"Private key is not accessible: {path.name}",
-                details=exc.strerror,
-            )
-        )
+        results.append(CheckResult(check_slug("keys.permissions", path.name), "keys", Status.FAIL, f"Private key is not accessible: {path.name}", details=exc.strerror))
     if assessment is not None and assessment.status is not Status.PASS:
         results.append(
-            CheckResult(
-                check_slug("keys.permissions", path.name),
-                "keys",
-                assessment.status,
-                assessment.message,
-                details=f"Expected: {assessment.expected}",
-                recommendation=assessment.recommendation,
-            )
+            CheckResult(check_slug("keys.permissions", path.name), "keys", assessment.status, assessment.message, details=f"Expected: {assessment.expected}", recommendation=assessment.recommendation)
         )
     if not public_exists:
         results.append(
-            CheckResult(
-                check_slug("keys.missing_public", path.name),
-                "keys",
-                Status.WARN,
-                f"Private key has no public key file: {path.name}",
-                recommendation=f"ssh-keygen -y -f {path} > {public}",
-            )
+            CheckResult(check_slug("keys.missing_public", path.name), "keys", Status.WARN, f"Private key has no public key file: {path.name}", recommendation=f"ssh-keygen -y -f {path} > {public}")
         )
     elif not encrypted:
         match = _pair_matches(ctx, path, public)
@@ -933,14 +504,7 @@ def _private_key(
                 )
             )
         elif match is None:
-            results.append(
-                CheckResult(
-                    check_slug("keys.invalid", path.name),
-                    "keys",
-                    Status.FAIL,
-                    f"Private key could not be read: {path.name}",
-                )
-            )
+            results.append(CheckResult(check_slug("keys.invalid", path.name), "keys", Status.FAIL, f"Private key could not be read: {path.name}"))
     else:
         results.append(
             CheckResult(
@@ -948,39 +512,18 @@ def _private_key(
                 "keys",
                 Status.PASS,
                 f"Private key is encrypted; pair verification was not performed: {path.name}",
-                details=(
-                    "Verification unavailable without a passphrase. No passphrase was requested."
-                ),
+                details=("Verification unavailable without a passphrase. No passphrase was requested."),
             )
         )
     if algorithm:
         flagged = algorithm_status(algorithm)
         if flagged is Status.WARN:
             results.append(
-                CheckResult(
-                    check_slug("keys.obsolete", path.name),
-                    "keys",
-                    Status.WARN,
-                    algorithm_label(algorithm) + f" ({path.name}).",
-                    recommendation="Prefer an Ed25519 key for new use.",
-                )
+                CheckResult(check_slug("keys.obsolete", path.name), "keys", Status.WARN, algorithm_label(algorithm) + f" ({path.name}).", recommendation="Prefer an Ed25519 key for new use.")
             )
-    unreadable = (
-        fingerprint is None
-        and not encrypted
-        and public_exists is False
-        and b"PRIVATE KEY" in prefix
-        and not any(item.check_id.startswith("keys.invalid") for item in results)
-    )
+    unreadable = fingerprint is None and not encrypted and public_exists is False and b"PRIVATE KEY" in prefix and not any(item.check_id.startswith("keys.invalid") for item in results)
     if unreadable:
-        results.append(
-            CheckResult(
-                check_slug("keys.invalid", path.name),
-                "keys",
-                Status.FAIL,
-                f"Private key file is invalid: {path.name}",
-            )
-        )
+        results.append(CheckResult(check_slug("keys.invalid", path.name), "keys", Status.FAIL, f"Private key file is invalid: {path.name}"))
     return results
 
 
@@ -988,11 +531,7 @@ def _fingerprint_for(ctx: Context, path: Path) -> tuple[str, str, str, str] | No
     keygen = ctx.which("ssh-keygen")
     if keygen is None or not path.is_file():
         return None
-    completed = ctx.runner.run(
-        [keygen, "-l", "-f", str(path)],
-        timeout=ctx.timeout,
-        env=ctx.environ,
-    )
+    completed = ctx.runner.run([keygen, "-l", "-f", str(path)], timeout=ctx.timeout, env=ctx.environ)
     if completed.timed_out or completed.returncode != 0:
         return None
     return parse_fingerprint(completed.stdout or completed.stderr)
@@ -1003,11 +542,7 @@ def _pair_matches(ctx: Context, private: Path, public: Path) -> bool | None:
     parsed = parse_public_key(_read_text(public) or "")
     if keygen is None or parsed is None:
         return None
-    completed = ctx.runner.run(
-        [keygen, "-y", "-P", "", "-f", str(private)],
-        timeout=ctx.timeout,
-        env=ctx.environ,
-    )
+    completed = ctx.runner.run([keygen, "-y", "-P", "", "-f", str(private)], timeout=ctx.timeout, env=ctx.environ)
     if completed.timed_out:
         return None
     derived = parse_public_key(completed.stdout)
@@ -1038,54 +573,18 @@ def _agent_fingerprints(ctx: Context) -> set[str] | None:
     return fingerprints
 
 
-def _read_directives(
-    ctx: Context,
-    config_path: Path,
-    results: list[CheckResult],
-) -> list:
+def _read_directives(ctx: Context, config_path: Path, results: list[CheckResult]) -> list:
     if not config_path.exists() and not config_path.is_symlink():
-        results.append(
-            CheckResult(
-                "config.file",
-                "config",
-                Status.PASS,
-                "No user SSH configuration file. OpenSSH defaults apply.",
-                details=str(config_path),
-            )
-        )
+        results.append(CheckResult("config.file", "config", Status.PASS, "No user SSH configuration file. OpenSSH defaults apply.", details=str(config_path)))
         return []
     if symlink_problem(config_path, ctx.home) == "broken":
-        results.append(
-            CheckResult(
-                "config.file",
-                "config",
-                Status.FAIL,
-                "SSH configuration symlink is broken.",
-                details=str(config_path),
-            )
-        )
+        results.append(CheckResult("config.file", "config", Status.FAIL, "SSH configuration symlink is broken.", details=str(config_path)))
         return []
     text = _read_text(config_path)
     if text is None:
-        results.append(
-            CheckResult(
-                "config.file",
-                "config",
-                Status.FAIL,
-                "SSH configuration file is not readable.",
-                details=str(config_path),
-            )
-        )
+        results.append(CheckResult("config.file", "config", Status.FAIL, "SSH configuration file is not readable.", details=str(config_path)))
         return []
-    results.append(
-        CheckResult(
-            "config.file",
-            "config",
-            Status.PASS,
-            "SSH configuration file is readable.",
-            details=str(config_path),
-        )
-    )
+    results.append(CheckResult("config.file", "config", Status.PASS, "SSH configuration file is readable.", details=str(config_path)))
     return parse_config(text)
 
 
@@ -1099,24 +598,12 @@ def _include_results(ctx: Context, directives: list, config_path: Path) -> list[
             matches = _glob_matches(expanded, token)
             if any(char in token for char in "*?["):
                 if not matches:
-                    results.append(
-                        CheckResult(
-                            check_slug("config.include", token),
-                            "config",
-                            Status.WARN,
-                            f"Include pattern matched no files: {token}",
-                            details=f"{config_path}:{directive.line_no}",
-                        )
-                    )
+                    results.append(CheckResult(check_slug("config.include", token), "config", Status.WARN, f"Include pattern matched no files: {token}", details=f"{config_path}:{directive.line_no}"))
                 continue
             if not expanded.exists():
                 results.append(
                     CheckResult(
-                        check_slug("config.include", expanded.name),
-                        "config",
-                        Status.FAIL,
-                        f"Included configuration file does not exist: {expanded}",
-                        details=f"{config_path}:{directive.line_no}",
+                        check_slug("config.include", expanded.name), "config", Status.FAIL, f"Included configuration file does not exist: {expanded}", details=f"{config_path}:{directive.line_no}"
                     )
                 )
     return results
@@ -1133,11 +620,7 @@ def _static_identity_results(ctx: Context, directives: list) -> list[CheckResult
                 continue
             results.append(
                 CheckResult(
-                    check_slug("config.identity", path.name),
-                    "config",
-                    Status.WARN,
-                    f"Global IdentityFile does not exist: {path}",
-                    recommendation="Create the key or remove the IdentityFile line.",
+                    check_slug("config.identity", path.name), "config", Status.WARN, f"Global IdentityFile does not exist: {path}", recommendation="Create the key or remove the IdentityFile line."
                 )
             )
     return results
@@ -1149,22 +632,12 @@ def _unsafe_results(directives: list) -> list[CheckResult]:
         reason = unsafe_reason(directive.keyword, directive.argument)
         if reason is None:
             continue
-        where = (
-            directive.context
-            if directive.context == "global"
-            else (f"{directive.context} {directive.context_arg}")
-        )
+        where = directive.context if directive.context == "global" else (f"{directive.context} {directive.context_arg}")
         details = f"Line {directive.line_no}, {where}."
         if directive.keyword == "proxycommand":
             details += " The command was not executed."
         results.append(
-            CheckResult(
-                check_slug("config.unsafe", f"{directive.keyword}.{directive.line_no}"),
-                "config",
-                Status.WARN,
-                f"Unsafe SSH option {directive.keyword}: {reason}.",
-                details=details,
-            )
+            CheckResult(check_slug("config.unsafe", f"{directive.keyword}.{directive.line_no}"), "config", Status.WARN, f"Unsafe SSH option {directive.keyword}: {reason}.", details=details)
         )
     return results
 
@@ -1184,105 +657,38 @@ def _effective_results(ctx: Context, host: str, completed: CommandResult) -> lis
         "UserKnownHostsFile": ", ".join(values.get("userknownhostsfile", [])) or "-",
     }
     details = "\n".join(f"{name}: {value}" for name, value in fields.items())
-    results = [
-        CheckResult(
-            "config.effective",
-            "config",
-            Status.PASS,
-            f"Effective configuration for {host}.",
-            details=details,
-        )
-    ]
+    results = [CheckResult("config.effective", "config", Status.PASS, f"Effective configuration for {host}.", details=details)]
     for token in values.get("identityfile", []):
         if token.lower() == "none":
             continue
         path = expand_ssh_path(token, ctx.home, ctx.ssh_dir)
         if path.is_file():
             continue
-        results.append(
-            CheckResult(
-                check_slug("config.effective_identity", path.name),
-                "config",
-                Status.WARN,
-                f"Effective IdentityFile does not exist: {path}",
-            )
-        )
-    for keyword, argument in (
-        ("stricthostkeychecking", fields["StrictHostKeyChecking"]),
-        ("proxycommand", _first(values, "proxycommand")),
-        ("forwardagent", _first(values, "forwardagent")),
-    ):
+        results.append(CheckResult(check_slug("config.effective_identity", path.name), "config", Status.WARN, f"Effective IdentityFile does not exist: {path}"))
+    for keyword, argument in (("stricthostkeychecking", fields["StrictHostKeyChecking"]), ("proxycommand", _first(values, "proxycommand")), ("forwardagent", _first(values, "forwardagent"))):
         reason = unsafe_reason(keyword, argument)
         if reason is None:
             continue
-        results.append(
-            CheckResult(
-                check_slug("config.effective_unsafe", keyword),
-                "config",
-                Status.WARN,
-                f"Effective {keyword} for {host}: {reason}.",
-            )
-        )
+        results.append(CheckResult(check_slug("config.effective_unsafe", keyword), "config", Status.WARN, f"Effective {keyword} for {host}: {reason}."))
     return results
 
 
 def _agent_contact(ctx: Context) -> list[CheckResult]:
     ssh_add = ctx.which("ssh-add")
     if ssh_add is None:
-        return [
-            CheckResult(
-                "agent.contact",
-                "agent",
-                Status.FAIL,
-                "ssh-add was not found, so the agent could not be contacted.",
-            )
-        ]
+        return [CheckResult("agent.contact", "agent", Status.FAIL, "ssh-add was not found, so the agent could not be contacted.")]
     completed = ctx.runner.run([ssh_add, "-l"], timeout=ctx.timeout, env=ctx.environ)
     if completed.timed_out:
-        return [
-            CheckResult(
-                "agent.contact",
-                "agent",
-                Status.FAIL,
-                "Timed out while contacting the SSH agent.",
-            )
-        ]
+        return [CheckResult("agent.contact", "agent", Status.FAIL, "Timed out while contacting the SSH agent.")]
     if completed.returncode == 2:
-        return [
-            CheckResult(
-                "agent.contact",
-                "agent",
-                Status.FAIL,
-                "The SSH agent could not be contacted.",
-                details=redact(completed.stderr)[:500],
-            )
-        ]
+        return [CheckResult("agent.contact", "agent", Status.FAIL, "The SSH agent could not be contacted.", details=redact(completed.stderr)[:500])]
     if completed.returncode == 1:
         return [
-            CheckResult(
-                "agent.contact",
-                "agent",
-                Status.PASS,
-                "SSH agent is reachable.",
-            ),
-            CheckResult(
-                "agent.identities",
-                "agent",
-                Status.WARN,
-                "The SSH agent has no identities.",
-                recommendation="An empty agent is not a failure if key files are used directly.",
-            ),
+            CheckResult("agent.contact", "agent", Status.PASS, "SSH agent is reachable."),
+            CheckResult("agent.identities", "agent", Status.WARN, "The SSH agent has no identities.", recommendation="An empty agent is not a failure if key files are used directly."),
         ]
     if completed.returncode != 0:
-        return [
-            CheckResult(
-                "agent.contact",
-                "agent",
-                Status.FAIL,
-                "The SSH agent returned an unexpected error.",
-                details=redact(completed.stderr or completed.stdout)[:500],
-            )
-        ]
+        return [CheckResult("agent.contact", "agent", Status.FAIL, "The SSH agent returned an unexpected error.", details=redact(completed.stderr or completed.stdout)[:500])]
     lines = []
     fingerprints: set[str] = set()
     for raw in completed.stdout.splitlines():
@@ -1293,19 +699,12 @@ def _agent_contact(ctx: Context) -> list[CheckResult]:
         fingerprints.add(fingerprint)
         lines.append(f"{algorithm or 'key'} {bits} {fingerprint} {comment}".strip())
     results = [
-        CheckResult(
-            "agent.contact",
-            "agent",
-            Status.PASS,
-            "SSH agent is reachable.",
-        ),
+        CheckResult("agent.contact", "agent", Status.PASS, "SSH agent is reachable."),
         CheckResult(
             "agent.identities",
             "agent",
             Status.PASS,
-            f"SSH agent has {len(lines)} loaded identity."
-            if len(lines) == 1
-            else f"SSH agent has {len(lines)} loaded identities.",
+            f"SSH agent has {len(lines)} loaded identity." if len(lines) == 1 else f"SSH agent has {len(lines)} loaded identities.",
             details="\n".join(lines) or None,
         ),
     ]
@@ -1353,13 +752,7 @@ def _apple_keychain(ctx: Context) -> CheckResult:
         notes.append("UseKeychain is present in the SSH configuration.")
     if "addkeystoagent" in text:
         notes.append("AddKeysToAgent is present in the SSH configuration.")
-    return CheckResult(
-        "agent.apple",
-        "agent",
-        Status.PASS,
-        "macOS SSH agent integration was inspected.",
-        details="\n".join(notes),
-    )
+    return CheckResult("agent.apple", "agent", Status.PASS, "macOS SSH agent integration was inspected.", details="\n".join(notes))
 
 
 def _known_host_paths(ctx: Context) -> list[Path]:
@@ -1391,56 +784,22 @@ def _known_host_paths(ctx: Context) -> list[Path]:
 
 def _one_known_host_file(ctx: Context, path: Path) -> list[CheckResult]:
     if symlink_problem(path, ctx.home) == "broken":
-        return [
-            CheckResult(
-                check_slug("known_hosts.symlink", path.name),
-                "known-hosts",
-                Status.FAIL,
-                f"Known-host symlink is broken: {path}",
-            )
-        ]
+        return [CheckResult(check_slug("known_hosts.symlink", path.name), "known-hosts", Status.FAIL, f"Known-host symlink is broken: {path}")]
     if not path.exists():
-        return [
-            CheckResult(
-                check_slug("known_hosts.file", path.name),
-                "known-hosts",
-                Status.SKIP,
-                f"Known-host file does not exist: {path}",
-            )
-        ]
+        return [CheckResult(check_slug("known_hosts.file", path.name), "known-hosts", Status.SKIP, f"Known-host file does not exist: {path}")]
     try:
         info = path.stat()
     except OSError as exc:
-        return [
-            CheckResult(
-                check_slug("known_hosts.file", path.name),
-                "known-hosts",
-                Status.FAIL,
-                f"Known-host file is not accessible: {path}",
-                details=exc.strerror,
-            )
-        ]
+        return [CheckResult(check_slug("known_hosts.file", path.name), "known-hosts", Status.FAIL, f"Known-host file is not accessible: {path}", details=exc.strerror)]
     assessment = assess_mode("known_hosts", info.st_mode, info.st_uid, ctx.uid, path)
     results = [
         CheckResult(
-            check_slug("known_hosts.permissions", path.name),
-            "known-hosts",
-            assessment.status,
-            assessment.message,
-            details=f"Expected: {assessment.expected}",
-            recommendation=assessment.recommendation,
+            check_slug("known_hosts.permissions", path.name), "known-hosts", assessment.status, assessment.message, details=f"Expected: {assessment.expected}", recommendation=assessment.recommendation
         )
     ]
     text = _read_text(path)
     if text is None:
-        results.append(
-            CheckResult(
-                check_slug("known_hosts.read", path.name),
-                "known-hosts",
-                Status.FAIL,
-                f"Known-host file is not readable: {path}",
-            )
-        )
+        results.append(CheckResult(check_slug("known_hosts.read", path.name), "known-hosts", Status.FAIL, f"Known-host file is not readable: {path}"))
         return results
     malformed: list[str] = []
     seen: dict[str, int] = {}
@@ -1460,50 +819,19 @@ def _one_known_host_file(ctx: Context, path: Path) -> list[CheckResult]:
         for host in entry.hosts:
             hosts[host].add(entry.key_type)
     if malformed:
-        results.append(
-            CheckResult(
-                check_slug("known_hosts.malformed", path.name),
-                "known-hosts",
-                Status.FAIL,
-                f"Malformed known-host entries in {path.name}.",
-                details="\n".join(malformed),
-            )
-        )
+        results.append(CheckResult(check_slug("known_hosts.malformed", path.name), "known-hosts", Status.FAIL, f"Malformed known-host entries in {path.name}.", details="\n".join(malformed)))
     else:
-        results.append(
-            CheckResult(
-                check_slug("known_hosts.entries", path.name),
-                "known-hosts",
-                Status.PASS,
-                f"Known-host entries in {path.name} are readable.",
-            )
-        )
+        results.append(CheckResult(check_slug("known_hosts.entries", path.name), "known-hosts", Status.PASS, f"Known-host entries in {path.name} are readable."))
     duplicates = [line for line, count in seen.items() if count > 1]
     if duplicates:
         results.append(
             CheckResult(
-                check_slug("known_hosts.duplicate", path.name),
-                "known-hosts",
-                Status.WARN,
-                f"Exact duplicate known-host entries in {path.name}.",
-                details=f"{len(duplicates)} duplicated line(s).",
+                check_slug("known_hosts.duplicate", path.name), "known-hosts", Status.WARN, f"Exact duplicate known-host entries in {path.name}.", details=f"{len(duplicates)} duplicated line(s)."
             )
         )
-    multi = [
-        f"{host}: {', '.join(sorted(types))}"
-        for host, types in sorted(hosts.items())
-        if len(types) > 1
-    ]
+    multi = [f"{host}: {', '.join(sorted(types))}" for host, types in sorted(hosts.items()) if len(types) > 1]
     if multi:
-        results.append(
-            CheckResult(
-                check_slug("known_hosts.types", path.name),
-                "known-hosts",
-                Status.PASS,
-                f"Some hosts in {path.name} have more than one key type.",
-                details="\n".join(multi),
-            )
-        )
+        results.append(CheckResult(check_slug("known_hosts.types", path.name), "known-hosts", Status.PASS, f"Some hosts in {path.name} have more than one key type.", details="\n".join(multi)))
     return results
 
 
@@ -1511,11 +839,7 @@ def _host_in_file(ctx: Context, path: Path, hostname: str) -> bool:
     keygen = ctx.which("ssh-keygen")
     if keygen is None:
         return False
-    completed = ctx.runner.run(
-        [keygen, "-F", hostname, "-f", str(path)],
-        timeout=ctx.timeout,
-        env=ctx.environ,
-    )
+    completed = ctx.runner.run([keygen, "-F", hostname, "-f", str(path)], timeout=ctx.timeout, env=ctx.environ)
     return completed.returncode == 0 and not completed.timed_out
 
 
@@ -1554,8 +878,4 @@ def _configured(values: list[str]) -> bool:
 def _suppress(results: list[CheckResult], suppressed: set[str]) -> list[CheckResult]:
     if not suppressed:
         return results
-    return [
-        result
-        for result in results
-        if not (result.status is Status.WARN and result.check_id in suppressed)
-    ]
+    return [result for result in results if not (result.status is Status.WARN and result.check_id in suppressed)]
